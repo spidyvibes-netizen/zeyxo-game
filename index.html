@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Triple Play</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1f3b;--panel:#262b52;--ink:#f2efff;--mute:#9aa0d0;--yellow:#ffd23f;--coral:#ff5d73;--teal:#2ec4b6}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 16px 24px}
+h1{font-size:30px;font-weight:700;padding:18px 0 4px}
+h2{font-size:20px;margin-bottom:6px}
+p{color:var(--mute);font-size:14px;line-height:1.4}
+.profile{background:var(--panel);border-radius:18px;padding:16px;margin:14px 0}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lvl{font-size:44px;font-weight:700;color:var(--yellow);line-height:1}
+.bar{height:10px;background:#1b1f3b;border-radius:8px;margin:12px 0 8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--yellow);width:0;transition:width .4s}
+.stats{display:flex;gap:18px;font-size:13px;color:var(--mute)}
+.stats b{color:var(--ink);font-size:16px;display:block}
+.card{display:block;width:100%;text-align:left;border:0;color:var(--ink);font:inherit;background:var(--panel);border-radius:18px;padding:16px;margin-bottom:12px;border-left:6px solid var(--c)}
+button.card{cursor:pointer}
+.card.off{opacity:.55}
+.tag{font-size:12px;color:var(--c);font-weight:600}
+.back{background:none;border:0;color:var(--mute);font:inherit;font-size:15px;padding:12px 0;cursor:pointer}
+#pad{height:46vh;border-radius:22px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:24px;font-weight:700;padding:20px;margin:14px 0;user-select:none;cursor:pointer;background:var(--coral);color:#fff}
+#pad.go{background:var(--teal)}
+#pad.idle{background:var(--panel);color:var(--ink)}
+.hidden{display:none}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+</style>
+</head>
+<body>
+<main id="home">
+  <h1>Triple Play</h1>
+  <p>Three games, one profile.</p>
+  <section class="profile" aria-label="Your profile">
+    <div class="row"><div><p>Level</p><div class="lvl" id="lvl">1</div></div><div style="text-align:right"><p>XP</p><b id="xp">0</b></div></div>
+    <div class="bar"><i id="fill"></i></div>
+    <div class="stats"><div><b id="score">0</b>Score</div><div><b id="streak">1</b>Day streak</div><div><b id="played">0</b>Rounds</div></div>
+  </section>
+  <button class="card" style="--c:var(--coral)" onclick="openReaction()"><div class="tag">Ready</div><h2>Reaction Master</h2><p>Tap the moment the screen turns green.</p></button>
+  <div class="card off" style="--c:var(--teal)"><div class="tag">Coming soon</div><h2>Geo Challenge</h2><p>Flags, capitals and maps.</p></div>
+  <div class="card off" style="--c:var(--yellow)"><div class="tag">Coming soon</div><h2>Escape Room</h2><p>Find clues and unlock the door.</p></div>
+</main>
+
+<main id="reaction" class="hidden">
+  <button class="back" onclick="goHome()">← Back</button>
+  <h2>Reaction Test</h2>
+  <p>Wait for green, then tap. Tapping early costs you the round.</p>
+  <div id="pad" class="idle" role="button" tabindex="0">Tap to start</div>
+  <div class="stats"><div><b id="last">–</b>Last (ms)</div><div><b id="best">–</b>Best (ms)</div><div><b id="avg">–</b>Average (ms)</div></div>
+</main>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const KEY = "tp_profile_v1";
+const blank = {xp:0, score:0, rounds:0, streak:1, lastDay:"", reaction:{best:null, total:0, n:0}};
+let P = blank;
+try { P = Object.assign({}, blank, JSON.parse(localStorage.getItem(KEY))); } catch (e) {}
+const $ = id => document.getElementById(id);
+const level = xp => Math.floor(Math.sqrt(xp / 50)) + 1;
+const xpFor = l => 50 * (l - 1) * (l - 1);
+
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
+function dailyStreak(){
+  const today = new Date().toISOString().slice(0, 10);
+  if (P.lastDay !== today) {
+    const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    P.streak = P.lastDay === y ? P.streak + 1 : 1;
+    P.lastDay = today; save();
+  }
+}
+function addXP(n, pts){ P.xp += n; P.score += pts; P.rounds++; save(); render(); }
+function render(){
+  const l = level(P.xp), a = xpFor(l), b = xpFor(l + 1);
+  $("lvl").textContent = l; $("xp").textContent = P.xp;
+  $("fill").style.width = Math.round(100 * (P.xp - a) / (b - a)) + "%";
+  $("score").textContent = P.score; $("streak").textContent = P.streak; $("played").textContent = P.rounds;
+  const r = P.reaction;
+  $("best").textContent = r.best ?? "–";
+  $("avg").textContent = r.n ? Math.round(r.total / r.n) : "–";
+}
+
+function show(id){
+  ["home", "reaction"].forEach(x => $(x).classList.toggle("hidden", x !== id));
+  if (tg) { id === "home" ? tg.BackButton.hide() : tg.BackButton.show(); }
+}
+function goHome(){ clearTimeout(timer); state = "idle"; setPad("idle", "Tap to start"); show("home"); }
+if (tg) tg.BackButton.onClick(goHome);
+function openReaction(){ show("reaction"); }
+
+// ----- Reaction Test -----
+let state = "idle", timer, t0;
+const pad = $("pad");
+function setPad(cls, text){ pad.className = cls; pad.textContent = text; }
+function press(){
+  if (state === "idle") {
+    state = "wait"; setPad("", "Wait for green…");
+    timer = setTimeout(() => { state = "go"; t0 = performance.now(); setPad("go", "TAP!"); }, 1500 + Math.random() * 2500);
+  } else if (state === "wait") {
+    clearTimeout(timer); state = "idle"; setPad("idle", "Too early! Tap to try again");
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+  } else if (state === "go") {
+    const ms = Math.round(performance.now() - t0), r = P.reaction;
+    r.n++; r.total += ms; r.best = r.best === null ? ms : Math.min(r.best, ms);
+    $("last").textContent = ms;
+    const xp = ms < 250 ? 30 : ms < 350 ? 20 : 10;
+    addXP(xp, Math.max(0, 500 - ms));
+    state = "idle"; setPad("idle", ms + " ms · +" + xp + " XP. Tap to play again");
+  }
+}
+pad.addEventListener("pointerdown", press);
+pad.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); press(); } });
+
+dailyStreak(); render();
+</script>
+</body>
+</html>
