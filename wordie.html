@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zeyxowordie</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1f3b;--panel:#262b52;--ink:#f2efff;--mute:#9aa0d0;--yellow:#ffd23f;--coral:#ff5d73;--teal:#2ec4b6;--abs:#3a4070}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 14px 18px;max-width:480px;margin:0 auto}
+h1{font-size:30px;font-weight:700;padding:18px 0 4px}
+p{color:var(--mute);font-size:14px;line-height:1.4}
+.hidden{display:none}
+.back{background:none;border:0;color:var(--mute);font:inherit;font-size:15px;padding:12px 0;cursor:pointer}
+.panel{background:var(--panel);border-radius:18px;padding:16px;margin:14px 0}
+.stats{display:flex;gap:18px;font-size:13px;color:var(--mute)}
+.stats b{color:var(--ink);font-size:18px;display:block}
+.btn{display:block;width:100%;text-align:left;border:0;color:var(--ink);font:inherit;background:var(--panel);border-radius:18px;padding:16px;margin-bottom:12px;border-left:6px solid var(--c);cursor:pointer}
+.btn h2{font-size:20px;margin-bottom:4px}
+.btn:disabled{opacity:.5;cursor:default}
+#board{display:grid;gap:6px;margin:10px auto 14px;width:min(100%,320px)}
+.r{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.t{aspect-ratio:1;border:2px solid var(--abs);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;text-transform:uppercase}
+.t.f{border-color:var(--mute)}
+.correct{background:var(--teal);border-color:var(--teal);color:#10243a}
+.present{background:var(--yellow);border-color:var(--yellow);color:#10243a}
+.absent{background:var(--abs);border-color:var(--abs);color:var(--mute)}
+#kb{display:grid;gap:6px}
+.kr{display:flex;gap:5px;justify-content:center}
+.k{flex:1;min-width:0;height:46px;border:0;border-radius:8px;background:#343a6c;color:var(--ink);font:inherit;font-weight:600;font-size:15px;text-transform:uppercase;cursor:pointer}
+.k.w{flex:1.6;font-size:12px}
+#toast{min-height:22px;text-align:center;font-weight:600;color:var(--yellow)}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+</style>
+</head>
+<body>
+<main id="menu">
+  <a class="back" href="index.html" style="text-decoration:none;display:inline-block">← Triple Play</a>
+  <h1>Zeyxowordie</h1>
+  <p>Guess the 5-letter word in six tries.</p>
+  <section class="panel"><div class="stats"><div><b id="sp">0</b>Played</div><div><b id="sw">0%</b>Wins</div><div><b id="ss">0</b>Streak</div><div><b id="sb">0</b>Best</div></div></section>
+  <button class="btn" id="bd" style="--c:var(--yellow)" onclick="start('daily')"><h2>Daily word</h2><p id="dnote">Same word for everyone today.</p></button>
+  <button class="btn" style="--c:var(--teal)" onclick="start('random')"><h2>Random word</h2><p>Play as much as you like.</p></button>
+</main>
+
+<main id="game" class="hidden">
+  <button class="back" onclick="toMenu()">← Back</button>
+  <div id="toast" role="status"></div>
+  <div id="board"></div>
+  <div id="result" class="panel hidden"><p id="rmsg" style="color:var(--ink);font-size:16px;margin-bottom:12px"></p><button class="btn" style="--c:var(--coral);margin:0 0 8px" onclick="share()">Share result</button><button class="btn" style="--c:var(--teal);margin:0" onclick="toMenu()">Back to menu</button></div>
+  <div id="kb"></div>
+</main>
+
+<script>
+const ANSWERS = ["about", "above", "actor", "adult", "after", "again", "agree", "ahead", "alarm", "album", "alert", "alike", "alive", "allow", "alone", "along", "alter", "among", "anger", "angle", "angry", "apple", "apply", "arena", "argue", "arise", "armed", "array", "arrow", "aside", "asset", "audio", "avoid", "awake", "award", "aware", "badly", "baker", "basic", "beach", "began", "begin", "being", "below", "bench", "birth", "black", "blame", "blank", "blind", "block", "blood", "board", "boost", "bound", "brain", "brand", "bread", "break", "brick", "bride", "brief", "bring", "broad", "brown", "build", "burst", "buyer", "cabin", "cable", "candy", "carry", "catch", "cause", "chain", "chair", "chalk", "charm", "chase", "cheap", "check", "cheek", "chess", "chest", "chief", "child", "chill", "choir", "civil", "claim", "class", "clean", "clear", "clerk", "click", "climb", "clock", "close", "cloud", "coach", "coast", "color", "count", "court", "cover", "craft", "crash", "crazy", "cream", "crime", "cross", "crowd", "crown", "curve", "daily", "dance", "death", "delay", "depth", "dirty", "doubt", "dozen", "draft", "drama", "dream", "dress", "drink", "drive", "eager", "early", "earth", "eight", "elite", "empty", "enjoy", "enter", "entry", "equal", "error", "event", "every", "exact", "exist", "extra", "faith", "false", "fancy", "fault", "field", "fifth", "fifty", "fight", "final", "first", "flame", "flash", "fleet", "floor", "focus", "force", "frame", "fresh", "front", "fruit", "fully", "funny", "giant", "given", "glass", "globe", "grace", "grade", "grain", "grand", "grant", "grape", "grass", "great", "green", "greet", "group", "guard", "guess", "guest", "guide", "happy", "heart", "heavy", "hello", "honey", "horse", "hotel", "house", "human", "humor", "ideal", "image", "index", "inner", "input", "issue", "joint", "judge", "juice", "knife", "known", "label", "large", "laser", "later", "laugh", "layer", "learn", "least", "leave", "legal", "lemon", "level", "light", "limit", "local", "logic", "loose", "lucky", "lunch", "magic", "major", "maker", "march", "match", "maybe", "mayor", "meant", "media", "metal", "might", "minor", "model", "money", "month", "moral", "motor", "mount", "mouse", "mouth", "movie", "music", "naive", "nerve", "never", "newly", "night", "noble", "noise", "north", "novel", "nurse", "ocean", "offer", "often", "olive", "onion", "opera", "order", "other", "outer", "owner", "paint", "panel", "paper", "party", "pasta", "patch", "pause", "peace", "phase", "phone", "photo", "piano", "piece", "pilot", "pitch", "place", "plain", "plane", "plant", "plate", "point", "power", "press", "price", "pride", "prime", "print", "prize", "proof", "proud", "queen", "quick", "quiet", "radio", "raise", "range", "rapid", "ratio", "reach", "ready", "realm", "refer", "relax", "reply", "rider", "right", "river", "robot", "rough", "round", "route", "royal", "rural", "salad", "scale", "scene", "scope", "score", "sense", "serve", "seven", "shade", "shake", "shape", "share", "sharp", "sheep", "sheet", "shelf", "shift", "shine", "shirt", "shock", "shoot", "short", "shown", "sight", "silly", "since", "skill", "sleep", "slice", "small", "smart", "smile", "smoke", "snake", "solid", "solve", "sorry", "sound", "south", "space", "spare", "speak", "speed", "spend", "spice", "split", "spoon", "sport", "staff", "stage", "stair", "stand", "start", "state", "steam", "steel", "stick", "still", "stone", "store", "storm", "story", "strip", "study", "style", "sugar", "suite", "sunny", "super", "sweet", "table", "taste", "teach", "thank", "theme", "there", "thick", "thing", "think", "third", "those", "three", "throw", "thumb", "tiger", "tight", "timer", "title", "today", "token", "total", "touch", "tough", "tower", "trace", "track", "trade", "trail", "train", "treat", "trend", "trial", "tribe", "trick", "truck", "truly", "trust", "truth", "twice", "uncle", "under", "union", "unity", "until", "upper", "urban", "usage", "usual", "valid", "value", "video", "virus", "visit", "vital", "voice", "waste", "watch", "water", "wheel", "where", "which", "while", "white", "whole", "whose", "woman", "world", "worry", "worth", "would", "write", "wrong", "young", "youth", "zebra"];
+const VALID = new Set(["aback", "abbey", "abide", "about", "above", "abuse", "actor", "acute", "adapt", "admit", "adopt", "adore", "adult", "after", "again", "agile", "agree", "ahead", "aisle", "alarm", "album", "alert", "alien", "align", "alike", "alive", "allot", "allow", "alone", "along", "alter", "amaze", "amber", "among", "ample", "angel", "anger", "angle", "angry", "ankle", "annex", "apart", "apple", "apply", "arena", "argue", "arise", "armed", "aroma", "arose", "array", "arrow", "aside", "asset", "attic", "audio", "aunty", "avert", "avoid", "awake", "award", "aware", "bacon", "badge", "badly", "baker", "basic", "basin", "batch", "beach", "beard", "beast", "beefy", "began", "begin", "begun", "beige", "being", "below", "bench", "bible", "bikes", "bingo", "birch", "birth", "bison", "black", "blade", "blame", "blank", "blast", "blaze", "bleak", "bless", "blind", "block", "blood", "bloom", "blush", "board", "boast", "bonus", "boost", "booth", "bound", "brain", "brand", "brave", "bread", "break", "breed", "brick", "bride", "brief", "bring", "brisk", "broad", "broke", "brown", "brush", "buddy", "build", "bunch", "burst", "buyer", "cabin", "cable", "cacti", "camel", "canal", "candy", "caper", "cargo", "carol", "carry", "catch", "cause", "cedar", "chain", "chair", "chalk", "chaos", "charm", "chase", "cheap", "check", "cheek", "cheer", "chess", "chest", "chief", "child", "chill", "choir", "civic", "civil", "claim", "clash", "class", "clean", "clear", "clerk", "click", "cliff", "climb", "cling", "clock", "close", "cloth", "cloud", "clown", "coach", "coast", "color", "coral", "couch", "cough", "count", "court", "cover", "craft", "crane", "crash", "crazy", "cream", "crime", "crisp", "cross", "crowd", "crown", "crush", "curry", "curve", "cycle", "daily", "dance", "dealt", "death", "decay", "decor", "delay", "delta", "denim", "depth", "devil", "diary", "digit", "diner", "dirty", "ditch", "diver", "dodge", "donor", "doubt", "dough", "dozen", "draft", "drama", "drawn", "dream", "dress", "dried", "drift", "drill", "drink", "drive", "drove", "drums", "dryer", "dwell", "eager", "eagle", "early", "earth", "eight", "elbow", "elder", "elect", "elite", "ember", "empty", "enemy", "enjoy", "enter", "entry", "envoy", "equal", "equip", "error", "essay", "ethic", "evade", "event", "every", "evoke", "exact", "exile", "exist", "extra", "fable", "faith", "false", "fancy", "fault", "feast", "fever", "fiber", "field", "fiery", "fifth", "fifty", "fight", "final", "finch", "first", "flair", "flame", "flash", "flask", "fleet", "flesh", "flock", "flood", "floor", "flour", "fluid", "flute", "focus", "force", "forge", "forth", "forum", "found", "foyer", "frame", "frank", "fraud", "freak", "fresh", "fried", "front", "frost", "froze", "fruit", "fudge", "fully", "fungi", "funny", "gamma", "gauge", "gavel", "gecko", "genre", "ghost", "giant", "given", "glass", "glide", "globe", "gloom", "glory", "glove", "glued", "gnome", "grace", "grade", "grail", "grain", "grand", "grant", "grape", "graph", "grasp", "grass", "gravy", "great", "greed", "green", "greet", "grief", "grill", "grind", "groom", "group", "grove", "growl", "grown", "gruel", "guard", "guess", "guest", "guide", "guilt", "habit", "hairy", "handy", "happy", "harsh", "haste", "hatch", "haven", "hazel", "heart", "heavy", "hedge", "hello", "hence", "hinge", "hobby", "honey", "honor", "horse", "hotel", "house", "human", "humor", "hurry", "hyena", "icing", "ideal", "igloo", "image", "imply", "inbox", "index", "infer", "inner", "input", "issue", "ivory", "jelly", "jewel", "joint", "joker", "jolly", "judge", "juice", "kayak", "kebab", "kiosk", "knife", "known", "koala", "label", "lance", "lapse", "large", "laser", "latch", "later", "lathe", "laugh", "layer", "leafy", "learn", "least", "leave", "ledge", "legal", "lemon", "level", "lever", "light", "limit", "liver", "llama", "local", "lodge", "logic", "loose", "lover", "lower", "loyal", "lucky", "lunar", "lunch", "lyric", "macro", "madam", "magic", "major", "maker", "mango", "manor", "maple", "march", "marsh", "mason", "match", "maybe", "mayor", "meant", "medal", "media", "melon", "mercy", "merge", "merit", "messy", "metal", "midst", "might", "mimic", "mince", "minor", "mocha", "model", "moist", "money", "month", "moral", "mossy", "motor", "motto", "mount", "mourn", "mouse", "mouth", "movie", "mulch", "music", "naive", "nasty", "naval", "nerve", "never", "newly", "niche", "night", "ninja", "noble", "noise", "north", "novel", "nurse", "nylon", "oasis", "occur", "ocean", "offer", "often", "olive", "onion", "onset", "opera", "opium", "orbit", "order", "organ", "other", "otter", "ounce", "outer", "owner", "oxide", "ozone", "paddy", "paint", "panel", "paper", "party", "pasta", "paste", "patch", "patio", "pause", "peace", "pearl", "pedal", "penny", "perch", "peril", "petal", "phase", "phone", "photo", "piano", "piece", "pilot", "pitch", "pixel", "pizza", "place", "plain", "plane", "plant", "plate", "plaza", "plumb", "plume", "plush", "poach", "point", "polar", "poppy", "porch", "pouch", "power", "prawn", "press", "price", "pride", "prime", "print", "prize", "prone", "proof", "prose", "proud", "prowl", "pulse", "punch", "pupil", "puppy", "quake", "quart", "queen", "quest", "quick", "quiet", "quilt", "quota", "quote", "radio", "raise", "ranch", "range", "rapid", "ratio", "raven", "razor", "reach", "ready", "realm", "rebel", "refer", "reign", "relax", "relic", "repay", "reply", "rider", "right", "rival", "river", "robot", "rogue", "rouge", "rough", "round", "route", "royal", "rugby", "ruler", "rural", "rusty", "saint", "salad", "salty", "sandy", "sauce", "savor", "scale", "scarf", "scary", "scene", "scope", "score", "scout", "scrap", "seize", "sense", "serve", "seven", "shade", "shake", "shape", "share", "shark", "sharp", "shawl", "sheep", "sheet", "shelf", "shell", "shift", "shine", "shirt", "shock", "shoot", "short", "shown", "shrug", "siege", "sight", "silly", "since", "skate", "skill", "skirt", "slang", "slate", "sleep", "slice", "slide", "slope", "small", "smart", "smash", "smile", "smoke", "snack", "snake", "sneak", "snowy", "soggy", "solid", "solve", "sonic", "sorry", "sound", "south", "space", "spade", "spare", "spark", "speak", "speed", "spell", "spend", "spice", "spine", "split", "spoil", "spoon", "sport", "spray", "squad", "squid", "stack", "staff", "stage", "stain", "stair", "stake", "stale", "stamp", "stand", "stark", "start", "stash", "state", "steak", "steam", "steel", "steep", "stern", "stick", "stiff", "still", "sting", "stink", "stock", "stone", "stoop", "store", "storm", "story", "stove", "straw", "stray", "strip", "strut", "stuck", "study", "stuff", "stump", "style", "sugar", "suite", "sulky", "sunny", "super", "surge", "swamp", "swarm", "swear", "sweep", "sweet", "swept", "swift", "swing", "sword", "syrup", "tabby", "table", "taken", "tango", "tapir", "tardy", "taste", "teach", "teddy", "tempo", "tenor", "tense", "tepid", "thank", "theme", "there", "thick", "thief", "thing", "think", "third", "thorn", "those", "three", "throw", "thumb", "thump", "tidal", "tiger", "tight", "timer", "title", "toast", "today", "token", "tonic", "topaz", "torch", "total", "totem", "touch", "tough", "tower", "toxic", "trace", "track", "trade", "trail", "train", "treat", "trend", "trial", "tribe", "trick", "truck", "truly", "trust", "truth", "tulip", "tunic", "turbo", "tutor", "twice", "ultra", "umbra", "uncle", "under", "unfit", "union", "unity", "untie", "until", "unzip", "upper", "upset", "urban", "usage", "usher", "usual", "utter", "vague", "valid", "value", "valve", "vapor", "vault", "vegan", "venom", "verse", "video", "vigor", "vinyl", "viola", "viper", "virus", "visit", "vital", "vocal", "vodka", "voice", "vowel", "wafer", "wagon", "waltz", "waste", "watch", "water", "weary", "weave", "wedge", "weigh", "weird", "whale", "wheat", "wheel", "where", "which", "while", "whisk", "white", "whole", "whose", "widow", "width", "wield", "windy", "witch", "woman", "woody", "world", "worry", "worth", "would", "write", "wrong", "yacht", "yearn", "yield", "young", "youth", "yummy", "zebra", "zesty"]);
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const $ = id => document.getElementById(id);
+const KEY = "tp_wordie_v1", PK = "tp_profile_v1";
+let S = {played:0, wins:0, streak:0, best:0, dailyDate:""};
+try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY))); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const today = () => new Date().toISOString().slice(0, 10);
+let answer, mode, row, col, cur, guesses, rows, over, ks;
+
+function dailyWord(){
+  let h = 0; for (const c of today()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return ANSWERS[h % ANSWERS.length];
+}
+function score(g, a){
+  const r = Array(5).fill("absent"), rem = {};
+  for (let i = 0; i < 5; i++) { if (g[i] === a[i]) r[i] = "correct"; else rem[a[i]] = (rem[a[i]] || 0) + 1; }
+  for (let i = 0; i < 5; i++) { if (r[i] === "correct") continue; if (rem[g[i]] > 0) { r[i] = "present"; rem[g[i]]--; } }
+  return r;
+}
+function menu(){
+  $("sp").textContent = S.played;
+  $("sw").textContent = (S.played ? Math.round(100 * S.wins / S.played) : 0) + "%";
+  $("ss").textContent = S.streak; $("sb").textContent = S.best;
+  const done = S.dailyDate === today();
+  $("bd").disabled = done;
+  $("dnote").textContent = done ? "Done for today. Come back tomorrow." : "Same word for everyone today.";
+}
+function show(id){
+  $("menu").classList.toggle("hidden", id !== "menu"); $("game").classList.toggle("hidden", id !== "game");
+  if (tg) { id === "menu" ? tg.BackButton.hide() : tg.BackButton.show(); }
+}
+function toMenu(){ menu(); show("menu"); }
+if (tg) tg.BackButton.onClick(toMenu);
+
+function start(m){
+  mode = m; answer = m === "daily" ? dailyWord() : ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+  row = 0; col = 0; cur = []; guesses = []; rows = []; over = false; ks = {};
+  const b = $("board"); b.innerHTML = "";
+  for (let i = 0; i < 6; i++) { const r = document.createElement("div"); r.className = "r"; for (let j = 0; j < 5; j++) { const t = document.createElement("div"); t.className = "t"; r.appendChild(t); } b.appendChild(r); }
+  const kb = $("kb"); kb.innerHTML = "";
+  ["qwertyuiop", "asdfghjkl", "+zxcvbnm-"].forEach(line => {
+    const r = document.createElement("div"); r.className = "kr";
+    for (const c of line) {
+      const k = document.createElement("button"); k.className = "k"; k.id = "k" + c;
+      if (c === "+") { k.textContent = "Enter"; k.classList.add("w"); k.onclick = () => key("Enter"); }
+      else if (c === "-") { k.textContent = "⌫"; k.classList.add("w"); k.onclick = () => key("Backspace"); }
+      else { k.textContent = c; k.onclick = () => key(c); }
+      r.appendChild(k);
+    }
+    kb.appendChild(r);
+  });
+  $("result").classList.add("hidden"); toast(""); show("game");
+}
+const tile = (r, c) => $("board").children[r].children[c];
+function toast(m){ $("toast").textContent = m; }
+function key(k){
+  if (over) return;
+  if (k === "Enter") return submit();
+  if (k === "Backspace") { if (col > 0) { col--; cur.pop(); const t = tile(row, col); t.textContent = ""; t.classList.remove("f"); } return; }
+  if (/^[a-z]$/.test(k) && col < 5) { const t = tile(row, col); t.textContent = k; t.classList.add("f"); cur.push(k); col++; }
+}
+document.addEventListener("keydown", e => { if ($("game").classList.contains("hidden") || e.ctrlKey || e.metaKey) return; key(e.key.length === 1 ? e.key.toLowerCase() : e.key); });
+
+function submit(){
+  if (col < 5) return toast("Not enough letters");
+  const w = cur.join("");
+  if (!VALID.has(w)) return toast("Not in the word list");
+  if (guesses.includes(w)) return toast("You already tried that word");
+  toast("");
+  const r = score(w, answer), rank = {absent:0, present:1, correct:2};
+  r.forEach((s, i) => {
+    const t = tile(row, i); t.className = "t " + s;
+    if (!(w[i] in ks) || rank[s] > rank[ks[w[i]]]) ks[w[i]] = s;
+  });
+  for (const c in ks) { const k = $("k" + c); k.className = "k " + ks[c]; }
+  guesses.push(w); rows.push(r);
+  if (w === answer) return finish(true);
+  if (++row === 6) return finish(false);
+  col = 0; cur = [];
+}
+function finish(win){
+  over = true;
+  S.played++; if (win) { S.wins++; S.streak++; S.best = Math.max(S.best, S.streak); } else S.streak = 0;
+  if (mode === "daily") S.dailyDate = today();
+  save();
+  let msg;
+  if (win) {
+    const n = guesses.length, xp = 70 - 10 * (n - 1);
+    try { const p = JSON.parse(localStorage.getItem(PK)) || {}; p.xp = (p.xp || 0) + xp; p.score = (p.score || 0) + 100 * (7 - n); p.rounds = (p.rounds || 0) + 1; localStorage.setItem(PK, JSON.stringify(p)); } catch (e) {}
+    msg = "Solved in " + n + "/6! +" + xp + " XP";
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+  } else msg = "Out of guesses. The word was " + answer.toUpperCase() + ".";
+  $("rmsg").textContent = msg; $("result").classList.remove("hidden");
+}
+function share(){
+  const em = {correct:"🟩", present:"🟨", absent:"⬛"};
+  const t = "Zeyxowordie " + (mode === "daily" ? "Daily " : "") + (guesses[guesses.length - 1] === answer ? guesses.length : "X") + "/6\n" + rows.map(r => r.map(s => em[s]).join("")).join("\n");
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Copied. Paste it in a chat."), () => toast("Could not copy"));
+}
+menu();
+</script>
+</body>
+</html>
