@@ -88,4 +88,5 @@ function next(){if(++qi<Q.length)return ask();
   const xp=right*3+(right===Q.length?10:0);S.rounds++;S.best=Math.max(S.best,score);if(mode==="daily")S.daily=today();save("tp_geo_v1",S);addXP(xp,score);
   $("qa").innerHTML="";$("opts").innerHTML="";$("em").textContent=right+"/"+Q.length+" correct. Score "+score+". +"+xp+" XP";$("end").classList.remove("hidden")}
 menu();
-</script></body></html>
+</script><script src="lang.js"></script>
+</body></html>

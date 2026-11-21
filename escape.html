@@ -115,4 +115,5 @@ function win(){clearInterval(iv);const i=S.room,secs=Math.floor((Date.now()-S.t0
   if(!S.cleared.includes(i)){const xp=Math.max(20,60-10*S.hints);addXP(xp,Math.max(50,500-secs));S.cleared.push(i);t+=" +"+xp+" XP"}
   S.t0=0;save("tp_escape_v1",S);$("em").textContent=t;$("end").classList.remove("hidden");if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred("success")}
 menu();
-</script></body></html>
+</script><script src="lang.js"></script>
+</body></html>
