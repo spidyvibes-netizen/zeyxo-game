@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escape Room</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1f3b;--panel:#262b52;--ink:#f2efff;--mute:#9aa0d0;--yellow:#ffd23f;--coral:#ff5d73;--teal:#2ec4b6;--abs:#3a4070}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 14px 18px;max-width:480px;margin:0 auto}
+h1{font-size:30px;font-weight:700;padding:14px 0 4px}h2{font-size:20px;margin-bottom:4px}
+p{color:var(--mute);font-size:14px;line-height:1.45}.hidden{display:none}
+.back{background:none;border:0;color:var(--mute);font:inherit;font-size:15px;padding:12px 0;cursor:pointer;text-decoration:none;display:inline-block}
+.panel{background:var(--panel);border-radius:18px;padding:16px;margin:12px 0}
+.stats{display:flex;gap:18px;font-size:13px;color:var(--mute)}.stats b{color:var(--ink);font-size:18px;display:block}
+.btn{display:block;width:100%;text-align:left;border:0;color:var(--ink);font:inherit;background:var(--panel);border-radius:18px;padding:14px 16px;margin-bottom:10px;border-left:6px solid var(--c,#8e7dff);cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{border:2px solid var(--abs);background:none;color:var(--ink);font:inherit;font-size:13px;padding:6px 12px;border-radius:20px;cursor:pointer}
+.chip.on{background:var(--yellow);border-color:var(--yellow);color:#10243a;font-weight:600}
+.msg{min-height:44px;color:var(--yellow);font-weight:600;font-size:15px;line-height:1.4;margin:8px 0}
+.bar{height:8px;background:var(--panel);border-radius:8px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:var(--yellow);width:100%}
+input{width:100%;font:inherit;font-size:20px;padding:12px;border-radius:12px;border:2px solid var(--abs);background:var(--bg);color:var(--ink);margin:8px 0;letter-spacing:4px;text-align:center}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.obj{display:inline-block;width:calc(50% - 5px);margin:0 4px 8px 0;vertical-align:top;text-align:center;padding:16px 8px}.inv{color:var(--ink);font-size:14px}.hint{--c:var(--coral)}
+#scene{width:100%;height:auto;display:block;border-radius:18px;margin:10px 0;background:#1b1f3b}
+#scene [data-o]{cursor:pointer}#scene [data-o]:hover{filter:brightness(1.3)}#scene [data-o]:focus-visible{outline:none;filter:drop-shadow(0 0 4px #ffd23f)}
+#scene .done{opacity:.6}#scene .lb{font:600 9px "Space Grotesk",sans-serif;fill:#f2efff;text-anchor:middle;paint-order:stroke;stroke:#1b1f3b;stroke-width:3px;pointer-events:none}
+</style></head><body>
+<main id="menu">
+<a class="back" href="index.html">← Triple Play</a><h1>Escape Room</h1><p>Find clues, solve the puzzles, open the door.</p>
+<div id="rooms" style="margin-top:12px"></div>
+<div class="btn" style="--c:var(--abs);opacity:.5"><h2>The Egyptian Tomb</h2><p>Coming soon</p></div>
+<div class="btn" style="--c:var(--abs);opacity:.5"><h2>Secret Underground Bunker</h2><p>Coming soon</p></div>
+<div class="btn" style="--c:var(--abs);opacity:.5"><h2>Haunted Mansion</h2><p>Coming soon</p></div>
+</main>
+<main id="game" class="hidden">
+<button class="back" onclick="toMenu()">← Rooms</button>
+<h1 id="rn" style="padding-top:0"></h1><div class="stats"><div><b id="tm">0:00</b>Time</div><div><b id="hu">0</b>Hints used</div></div>
+<p id="ri" style="margin-top:8px"></p><div class="msg" id="msg" role="status"></div>
+<svg id="scene" viewBox="0 0 360 250" role="group" aria-label="Room scene"></svg>
+<div id="cf" class="panel hidden"><p id="cp"></p><input id="ci" inputmode="numeric" autocomplete="off"><button class="btn" style="--c:var(--teal);margin:0" onclick="trycode()">Enter</button></div>
+<p class="inv" id="inv"></p>
+<button class="btn hint" style="margin-top:10px" onclick="hint()">💡 Hint (costs 10 XP)</button>
+<div id="end" class="panel hidden"><p id="em" style="color:var(--ink);font-size:16px;margin-bottom:12px"></p><button class="btn" style="--c:var(--teal);margin:0" onclick="toMenu()">Back to rooms</button></div>
+</main>
+<script>
+const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();tg.BackButton.show();tg.BackButton.onClick(()=>{location.href="index.html"})}
+const $=id=>document.getElementById(id);
+const PK="tp_profile_v1";
+function addXP(xp,pts){try{const p=JSON.parse(localStorage.getItem(PK))||{};p.xp=(p.xp||0)+xp;p.score=(p.score||0)+pts;p.rounds=(p.rounds||0)+1;localStorage.setItem(PK,JSON.stringify(p))}catch(e){}}
+function load(k,d){try{return Object.assign(d,JSON.parse(localStorage.getItem(k)))}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const today=()=>new Date().toISOString().slice(0,10);
+
+const LAB=`<rect width="360" height="200" fill="#2f3b63"/><rect y="200" width="360" height="50" fill="#232a4d"/><rect y="196" width="360" height="5" fill="#1b1f3b"/>
+<rect x="15" y="150" width="145" height="8" fill="#6b5a45"/><rect x="22" y="158" width="6" height="42" fill="#6b5a45"/><rect x="146" y="158" width="6" height="42" fill="#6b5a45"/><path d="M112 150v-20h14v20z" fill="#2ec4b6" opacity=".7"/>
+<g data-o="cb"><rect x="20" y="25" width="130" height="75" rx="4" fill="#8a6a45"/><rect x="25" y="30" width="120" height="65" fill="#1f3a34"/><g fill="none" stroke="#ffd23f" stroke-width="2"><ellipse cx="48" cy="62" rx="14" ry="15"/><ellipse cx="85" cy="62" rx="14" ry="15"/><ellipse cx="122" cy="62" rx="18" ry="15"/></g><g fill="#f2efff" font-size="20" font-weight="700" text-anchor="middle" font-family="Space Grotesk,sans-serif"><text x="48" y="69">C</text><text x="85" y="69">O</text><text x="122" y="69">He</text></g></g>
+<g data-o="nb"><rect x="42" y="139" width="32" height="11" rx="2" fill="#ff5d73"/><rect x="45" y="141" width="26" height="2" fill="#f2efff"/></g>
+<g data-o="tb"><rect x="262" y="214" width="50" height="24" rx="3" fill="#ff5d73"/><rect x="262" y="222" width="50" height="3" fill="#b83a50"/><path d="M276 214v-7h22v7" fill="none" stroke="#ffd23f" stroke-width="3"/></g>
+<g data-o="vent"><rect x="255" y="28" width="70" height="46" rx="3" fill="#4a5486"/><path d="M262 40h56M262 50h56M262 60h56" stroke="#2f3b63" stroke-width="3"/><g fill="#9aa0d0"><circle cx="260" cy="33" r="2.5"/><circle cx="320" cy="33" r="2.5"/><circle cx="260" cy="69" r="2.5"/><circle cx="320" cy="69" r="2.5"/></g></g>
+<g data-o="safe"><rect x="262" y="100" width="56" height="56" rx="4" fill="#5a6396"/><rect x="268" y="106" width="44" height="44" rx="3" fill="#3a4274"/><circle cx="290" cy="128" r="11" fill="#ffd23f"/><circle cx="290" cy="128" r="3" fill="#3a4274"/></g>
+<g data-o="door"><rect x="170" y="58" width="72" height="142" fill="#4a5486"/><rect x="178" y="66" width="56" height="126" fill="#3a4274"/><circle cx="224" cy="132" r="4" fill="#ffd23f"/><rect x="244" y="112" width="14" height="26" rx="2" fill="#1b1f3b"/><rect x="247" y="116" width="8" height="4" fill="#ff5d73"/></g>`,OFFICE=`<rect width="360" height="200" fill="#3a3556"/><rect y="200" width="360" height="50" fill="#2a2640"/><rect y="196" width="360" height="5" fill="#1b1f3b"/>
+<rect x="195" y="25" width="125" height="75" fill="#1b2a4a" stroke="#6b5a8a" stroke-width="4"/><path d="M210 35l-4 12M230 45l-4 12M250 33l-4 12M270 48l-4 12M290 36l-4 12M240 70l-4 12M280 75l-4 12M215 78l-4 12" stroke="#9aa0d0" stroke-width="1.5"/><path d="M257 25v75M195 62h125" stroke="#6b5a8a" stroke-width="3"/>
+<rect x="180" y="160" width="160" height="12" fill="#7a5a3f"/><rect x="186" y="172" width="148" height="30" fill="#5e4631"/>
+<g data-o="cal"><rect x="20" y="25" width="62" height="66" rx="3" fill="#f2efff"/><rect x="20" y="25" width="62" height="14" fill="#ff5d73"/><path d="M28 50h46M28 60h46M28 70h46M28 80h46" stroke="#9aa0d0" stroke-width="1"/><circle cx="51" cy="65" r="9" fill="none" stroke="#ff5d73" stroke-width="2.5"/><text x="51" y="68" text-anchor="middle" font-size="9" font-weight="700" fill="#1b1f3b" font-family="Space Grotesk,sans-serif">17</text></g>
+<g data-o="cab"><rect x="20" y="103" width="62" height="98" rx="3" fill="#5a6396"/><path d="M20 135h62M20 168h62" stroke="#3a4274" stroke-width="2"/><g fill="#ffd23f"><rect x="42" y="116" width="18" height="4"/><rect x="42" y="149" width="18" height="4"/><rect x="42" y="182" width="18" height="4"/></g></g>
+<g data-o="door"><rect x="100" y="40" width="68" height="160" fill="#6b4e3a"/><rect x="108" y="48" width="52" height="144" fill="#573d2d"/><circle cx="152" cy="118" r="4" fill="#ffd23f"/><rect x="132" y="136" width="28" height="12" rx="2" fill="#1b1f3b"/><g fill="#ffd23f"><circle cx="138" cy="142" r="2.2"/><circle cx="144" cy="142" r="2.2"/><circle cx="150" cy="142" r="2.2"/><circle cx="156" cy="142" r="2.2"/></g></g>
+<g data-o="tw"><rect x="196" y="140" width="54" height="20" rx="3" fill="#343a6c"/><rect x="210" y="124" width="26" height="18" fill="#f2efff"/><path d="M214 130h18M214 135h14" stroke="#9aa0d0"/></g>
+<g data-o="lamp"><path d="M294 112h36l-8 20h-20z" fill="#ffd23f"/><rect x="309" y="132" width="3" height="20" fill="#9aa0d0"/><rect x="298" y="152" width="26" height="8" rx="2" fill="#9aa0d0"/></g>
+<g data-o="dr"><rect x="238" y="178" width="70" height="20" rx="2" fill="#7a5a3f"/><rect x="266" y="185" width="14" height="4" fill="#ffd23f"/></g>`;
+const ROOMS=[
+{name:"Abandoned Laboratory",intro:"Emergency lights flicker. The exit is sealed. Look around.",
+ svg:LAB,hints:["Read the chalkboard and the notebook together.","The safe code is the atomic numbers of the circled elements, in order.","Carbon 6, oxygen 8, helium 2: the safe opens with 682. Tools open the vent."],
+ objs:[
+ {id:"cb",l:"Chalkboard",d:"Three elements are circled in this order: CARBON, OXYGEN, HELIUM."},
+ {id:"nb",l:"Notebook",d:"“Safe code: the atomic numbers of the circled elements, in the order they are circled.”"},
+ {id:"tb",l:"Toolbox",d:"A rusty toolbox. You take a screwdriver.",take:["sd","Screwdriver"]},
+ {id:"vent",l:"Air vent",n:"sd",k:"The cover is screwed shut. You need a tool.",r:"Taped inside the vent: “Exit PIN: 4 7 1”."},
+ {id:"safe",l:"Wall safe",c:"682",p:"Wall safe: 3 digits",r:"The safe opens. Inside is an access keycard.",g:["kc","Keycard"]},
+ {id:"door",l:"Exit door",n:"kc",k:"A card reader blinks red. You need a keycard.",c:"471",p:"Keypad: 3 digits",r:"The door slides open!",door:1}]},
+{name:"Detective’s Office",intro:"Rain on the window. A case file is missing, and the door is locked.",
+ svg:OFFICE,hints:["The calendar and the typewriter belong together.","The cabinet code is the circled day, then the hour: 17 and 9.","Cabinet 179. The photograph points to the lamp. The ledger gives the door code: M and R as numbers."],
+ objs:[
+ {id:"cal",l:"Wall calendar",d:"The 17th is circled in red, with a note: “Pier, 9 pm.”"},
+ {id:"tw",l:"Typewriter",d:"A page is still in the roller: “The cabinet code is the circled day, then the hour. Nothing else.”"},
+ {id:"cab",l:"Filing cabinet",c:"179",p:"Cabinet: 3 digits",r:"Inside is a photograph. On the back: “Look under the lamp.”",g:["ph","Photograph"]},
+ {id:"lamp",l:"Desk lamp",n:"ph",k:"Just a lamp. Nothing to see yet.",r:"Taped under the base: a small brass key.",g:["bk","Brass key"]},
+ {id:"dr",l:"Desk drawer",n:"bk",k:"Locked.",r:"A ledger. One name is circled: M. R. The last page says: “Door lock: letters to numbers, A=1.”",g:["lg","Ledger"]},
+ {id:"door",l:"Office door",n:"lg",k:"Four number wheels, and no idea what to enter yet.",c:"1318",p:"Lock: 4 digits",r:"Click. The door opens!",door:1}]}];
+let S=load("tp_escape_v1",{room:0,inv:[],done:{},hints:0,t0:0,cleared:[]}),R,cur,iv;
+const has=i=>S.inv.some(x=>x[0]===i),give=g=>{if(g&&!has(g[0]))S.inv.push(g)},say=t=>{$("msg").textContent=t};
+function show(id){$("menu").classList.toggle("hidden",id!=="menu");$("game").classList.toggle("hidden",id!=="game")}
+function menu(){$("rooms").innerHTML="";ROOMS.forEach((r,i)=>{const b=document.createElement("button");b.className="btn";b.style.setProperty("--c",S.cleared.includes(i)?"var(--teal)":"var(--yellow)");
+  b.innerHTML="<h2>"+r.name+"</h2><p>"+(S.cleared.includes(i)?"Cleared ✓ (play again)":S.room===i&&S.t0?"Continue":"Play")+"</p>";b.onclick=()=>start(i);$("rooms").appendChild(b)})}
+function toMenu(){clearInterval(iv);menu();show("menu")}
+function start(i){if(S.room!==i||!S.t0){S={room:i,inv:[],done:{},hints:0,t0:Date.now(),cleared:S.cleared};save("tp_escape_v1",S)}
+  R=ROOMS[i];$("rn").textContent=R.name;$("ri").textContent=R.intro;say("");$("cf").classList.add("hidden");$("end").classList.add("hidden");show("game");draw();
+  clearInterval(iv);iv=setInterval(tick,1000);tick()}
+function tick(){const s=Math.floor((Date.now()-S.t0)/1000);$("tm").textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+function draw(){$("hu").textContent=S.hints;const sc=$("scene");sc.innerHTML=R.svg;
+  sc.querySelectorAll("[data-o]").forEach(g=>{const o=R.objs.find(x=>x.id===g.dataset.o);g.setAttribute("role","button");g.setAttribute("tabindex","0");g.setAttribute("aria-label",o.l);if(S.done[o.id])g.classList.add("done");
+    g.onclick=()=>tap(o);g.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tap(o)}};
+    const bb=g.getBBox(),t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",bb.x+bb.width/2);t.setAttribute("y",Math.min(bb.y+bb.height+11,246));t.setAttribute("class","lb");t.textContent=o.l+(S.done[o.id]?" ✓":"");g.appendChild(t)});
+  $("inv").textContent="Inventory: "+(S.inv.length?S.inv.map(x=>x[1]).join(", "):"empty")}
+function tap(o){$("cf").classList.add("hidden");
+  if(o.n&&!has(o.n))return say(o.k||"You need something for this.");
+  if(o.c&&!S.done[o.id]){cur=o;$("cp").textContent=o.p;$("ci").value="";$("cf").classList.remove("hidden");$("ci").focus();return}
+  if(o.n&&!S.done[o.id]){S.done[o.id]=1;say(o.r);give(o.g);save("tp_escape_v1",S);return draw()}
+  say(S.done[o.id]?(o.r||o.d):o.d);if(o.take){give(o.take);S.done[o.id]=1;save("tp_escape_v1",S);draw()}}
+function trycode(){const o=cur;if($("ci").value.trim()!==o.c){if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred("error");return say("Wrong code.")}
+  S.done[o.id]=1;$("cf").classList.add("hidden");say(o.r);give(o.g);save("tp_escape_v1",S);draw();if(o.door)win()}
+function hint(){const h=R.hints[Math.min(S.hints,R.hints.length-1)];S.hints++;save("tp_escape_v1",S);say("Hint: "+h);$("hu").textContent=S.hints}
+function win(){clearInterval(iv);const i=S.room,secs=Math.floor((Date.now()-S.t0)/1000);let t="You escaped in "+Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0")+"!";
+  if(!S.cleared.includes(i)){const xp=Math.max(20,60-10*S.hints);addXP(xp,Math.max(50,500-secs));S.cleared.push(i);t+=" +"+xp+" XP"}
+  S.t0=0;save("tp_escape_v1",S);$("em").textContent=t;$("end").classList.remove("hidden");if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred("success")}
+menu();
+</script></body></html>
