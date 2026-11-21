@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Geo Challenge</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1f3b;--panel:#262b52;--ink:#f2efff;--mute:#9aa0d0;--yellow:#ffd23f;--coral:#ff5d73;--teal:#2ec4b6;--abs:#3a4070}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 14px 18px;max-width:480px;margin:0 auto}
+h1{font-size:30px;font-weight:700;padding:14px 0 4px}h2{font-size:20px;margin-bottom:4px}
+p{color:var(--mute);font-size:14px;line-height:1.45}.hidden{display:none}
+.back{background:none;border:0;color:var(--mute);font:inherit;font-size:15px;padding:12px 0;cursor:pointer;text-decoration:none;display:inline-block}
+.panel{background:var(--panel);border-radius:18px;padding:16px;margin:12px 0}
+.stats{display:flex;gap:18px;font-size:13px;color:var(--mute)}.stats b{color:var(--ink);font-size:18px;display:block}
+.btn{display:block;width:100%;text-align:left;border:0;color:var(--ink);font:inherit;background:var(--panel);border-radius:18px;padding:14px 16px;margin-bottom:10px;border-left:6px solid var(--c,#8e7dff);cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{border:2px solid var(--abs);background:none;color:var(--ink);font:inherit;font-size:13px;padding:6px 12px;border-radius:20px;cursor:pointer}
+.chip.on{background:var(--yellow);border-color:var(--yellow);color:#10243a;font-weight:600}
+.msg{min-height:44px;color:var(--yellow);font-weight:600;font-size:15px;line-height:1.4;margin:8px 0}
+.bar{height:8px;background:var(--panel);border-radius:8px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:var(--yellow);width:100%}
+input{width:100%;font:inherit;font-size:20px;padding:12px;border-radius:12px;border:2px solid var(--abs);background:var(--bg);color:var(--ink);margin:8px 0;letter-spacing:4px;text-align:center}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+#flag{display:block;margin:10px auto;height:120px;max-width:100%;border-radius:8px;border:1px solid var(--abs)}
+.q{text-align:center;font-size:22px;font-weight:700;margin:14px 0}.ok{background:var(--teal)!important;color:#10243a}.no{background:var(--coral)!important;color:#fff}
+</style></head><body>
+<main id="menu">
+<a class="back" href="index.html">← Triple Play</a><h1>Geo Challenge</h1><p>Ten questions. Ten seconds each. Keep your streak.</p>
+<section class="panel"><div class="stats"><div><b id="sb">0</b>Best</div><div><b id="sr">0</b>Rounds</div><div><b id="sa">0%</b>Accuracy</div></div></section>
+<p>Continent</p><div class="chips" id="chips"></div>
+<button class="btn" style="--c:var(--coral)" onclick="go('flag')"><h2>Flag Challenge</h2><p>Name the country from its flag.</p></button>
+<button class="btn" style="--c:var(--teal)" onclick="go('cap')"><h2>Capital Challenge</h2><p>Pick the capital of the country.</p></button>
+<button class="btn" id="bd" style="--c:var(--yellow)" onclick="go('daily')"><h2>Daily Challenge</h2><p id="dn">Same questions for everyone today.</p></button>
+</main>
+<main id="game" class="hidden">
+<button class="back" onclick="toMenu()">← Quit</button>
+<div class="stats"><div><b id="qn">1/10</b>Question</div><div><b id="sc">0</b>Score</div><div><b id="st">0</b>Streak</div></div>
+<div class="bar"><i id="tb"></i></div>
+<div id="qa"></div><div id="opts"></div>
+<div id="end" class="panel hidden"><p id="em" style="color:var(--ink);font-size:16px;margin-bottom:12px"></p><button class="btn" style="--c:var(--teal);margin:0" onclick="toMenu()">Back to menu</button></div>
+</main>
+<script>
+const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();tg.BackButton.show();tg.BackButton.onClick(()=>{location.href="index.html"})}
+const $=id=>document.getElementById(id);
+const PK="tp_profile_v1";
+function addXP(xp,pts){try{const p=JSON.parse(localStorage.getItem(PK))||{};p.xp=(p.xp||0)+xp;p.score=(p.score||0)+pts;p.rounds=(p.rounds||0)+1;localStorage.setItem(PK,JSON.stringify(p))}catch(e){}}
+function load(k,d){try{return Object.assign(d,JSON.parse(localStorage.getItem(k)))}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const today=()=>new Date().toISOString().slice(0,10);
+
+const D="FR|France|Paris|EU;DE|Germany|Berlin|EU;IT|Italy|Rome|EU;ES|Spain|Madrid|EU;PT|Portugal|Lisbon|EU;GB|United Kingdom|London|EU;IE|Ireland|Dublin|EU;NL|Netherlands|Amsterdam|EU;BE|Belgium|Brussels|EU;CH|Switzerland|Bern|EU;AT|Austria|Vienna|EU;PL|Poland|Warsaw|EU;CZ|Czechia|Prague|EU;SE|Sweden|Stockholm|EU;NO|Norway|Oslo|EU;FI|Finland|Helsinki|EU;DK|Denmark|Copenhagen|EU;GR|Greece|Athens|EU;UA|Ukraine|Kyiv|EU;RO|Romania|Bucharest|EU;HU|Hungary|Budapest|EU;HR|Croatia|Zagreb|EU;RS|Serbia|Belgrade|EU;BG|Bulgaria|Sofia|EU;IS|Iceland|Reykjavik|EU;JP|Japan|Tokyo|AS;CN|China|Beijing|AS;IN|India|New Delhi|AS;KR|South Korea|Seoul|AS;TH|Thailand|Bangkok|AS;VN|Vietnam|Hanoi|AS;ID|Indonesia|Jakarta|AS;PH|Philippines|Manila|AS;TR|Turkey|Ankara|AS;SA|Saudi Arabia|Riyadh|AS;IR|Iran|Tehran|AS;KZ|Kazakhstan|Astana|AS;PK|Pakistan|Islamabad|AS;MY|Malaysia|Kuala Lumpur|AS;NP|Nepal|Kathmandu|AS;GE|Georgia|Tbilisi|AS;EG|Egypt|Cairo|AF;MA|Morocco|Rabat|AF;NG|Nigeria|Abuja|AF;ZA|South Africa|Pretoria|AF;KE|Kenya|Nairobi|AF;ET|Ethiopia|Addis Ababa|AF;GH|Ghana|Accra|AF;DZ|Algeria|Algiers|AF;TN|Tunisia|Tunis|AF;SN|Senegal|Dakar|AF;TZ|Tanzania|Dodoma|AF;US|United States|Washington, D.C.|NA;CA|Canada|Ottawa|NA;MX|Mexico|Mexico City|NA;CU|Cuba|Havana|NA;JM|Jamaica|Kingston|NA;CR|Costa Rica|San José|NA;PA|Panama|Panama City|NA;BR|Brazil|Brasília|SA;AR|Argentina|Buenos Aires|SA;CL|Chile|Santiago|SA;CO|Colombia|Bogotá|SA;PE|Peru|Lima|SA;VE|Venezuela|Caracas|SA;UY|Uruguay|Montevideo|SA;EC|Ecuador|Quito|SA;AU|Australia|Canberra|OC;NZ|New Zealand|Wellington|OC;FJ|Fiji|Suva|OC;PG|Papua New Guinea|Port Moresby|OC";
+const C=D.split(";").map(s=>{const [i,n,c,k]=s.split("|");return{i:i.toLowerCase(),n,c,k}});
+const CONT={ALL:"All",EU:"Europe",AS:"Asia",AF:"Africa",NA:"N. America",SA:"S. America",OC:"Oceania"};
+let S=load("tp_geo_v1",{best:0,rounds:0,right:0,asked:0,daily:""}),cont="ALL",Q,qi,score,streak,tl,timer,rnd,right,mode,lock;
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuf(a,r){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const emoji=i=>String.fromCodePoint(...[...i.toUpperCase()].map(c=>127397+c.charCodeAt(0)));
+function menu(){
+  $("sb").textContent=S.best;$("sr").textContent=S.rounds;$("sa").textContent=(S.asked?Math.round(100*S.right/S.asked):0)+"%";
+  $("chips").innerHTML="";for(const k in CONT){const b=document.createElement("button");b.className="chip"+(k===cont?" on":"");b.textContent=CONT[k];b.onclick=()=>{cont=k;menu()};$("chips").appendChild(b)}
+  const d=S.daily===today();$("bd").disabled=d;$("dn").textContent=d?"Done for today. Come back tomorrow.":"Same questions for everyone today."}
+function show(id){$("menu").classList.toggle("hidden",id!=="menu");$("game").classList.toggle("hidden",id!=="game")}
+function toMenu(){clearInterval(timer);menu();show("menu")}
+function go(m){
+  mode=m;let r=Math.random,pool=C.filter(c=>cont==="ALL"||c.k===cont);
+  if(m==="daily"){let h=0;for(const ch of today())h=(h*31+ch.charCodeAt(0))>>>0;r=rng(h);pool=C}
+  const picks=shuf(pool,r).slice(0,Math.min(10,pool.length));
+  Q=picks.map((c,i)=>{const t=m==="daily"?(i%2?"cap":"flag"):m;
+    const wrong=shuf(C.filter(x=>x.i!==c.i&&(t==="flag"||x.c!==c.c)),r).slice(0,3);
+    return{t,c,o:shuf([c,...wrong],r)}});
+  qi=0;score=0;streak=0;right=0;$("end").classList.add("hidden");show("game");ask()}
+function ask(){
+  const q=Q[qi];lock=false;$("qn").textContent=(qi+1)+"/"+Q.length;$("sc").textContent=score;$("st").textContent=streak;
+  $("qa").innerHTML=q.t==="flag"?'<img id="flag" alt="Flag" src="https://flagcdn.com/h120/'+q.c.i+'.png"><p class="q">Which country is this?</p>':'<p class="q">What is the capital of '+q.c.n+'?</p>';
+  const im=$("flag");if(im)im.onerror=()=>{im.outerHTML='<p class="q" style="font-size:80px">'+emoji(q.c.i)+'</p>'};
+  $("opts").innerHTML="";q.o.forEach(o=>{const b=document.createElement("button");b.className="btn";b.textContent=q.t==="flag"?o.n:o.c;b.onclick=()=>pick(b,o);$("opts").appendChild(b)});
+  tl=10;$("tb").style.width="100%";clearInterval(timer);
+  timer=setInterval(()=>{tl-=.1;$("tb").style.width=Math.max(0,tl*10)+"%";if(tl<=0){clearInterval(timer);reveal(null,null)}},100)}
+function pick(b,o){if(lock)return;clearInterval(timer);reveal(b,o)}
+function reveal(b,o){
+  lock=true;const q=Q[qi],ok=o&&o.i===q.c.i;S.asked++;
+  if(ok){right++;S.right++;streak++;score+=10+Math.min(streak,5)*2+Math.round(tl)}else streak=0;
+  [...$("opts").children].forEach((x,i)=>{if(q.o[i].i===q.c.i)x.classList.add("ok");else if(x===b)x.classList.add("no")});
+  if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred(ok?"success":"error");
+  $("sc").textContent=score;$("st").textContent=streak;setTimeout(next,1000)}
+function next(){if(++qi<Q.length)return ask();
+  const xp=right*3+(right===Q.length?10:0);S.rounds++;S.best=Math.max(S.best,score);if(mode==="daily")S.daily=today();save("tp_geo_v1",S);addXP(xp,score);
+  $("qa").innerHTML="";$("opts").innerHTML="";$("em").textContent=right+"/"+Q.length+" correct. Score "+score+". +"+xp+" XP";$("end").classList.remove("hidden")}
+menu();
+</script></body></html>
